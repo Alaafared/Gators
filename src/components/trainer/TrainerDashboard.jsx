@@ -433,7 +433,9 @@ const TrainerDashboard = () => {
                           <SelectItem value="Adult" className="text-white">{('Adult')}</SelectItem>
                           <SelectItem value="Dream Team" className="text-white">{('Dream Team')}</SelectItem>
                           <SelectItem value="Promise Team" className="text-white">{('Promise Team')}</SelectItem>
-                        </SelectContent>
+                          <SelectItem value="Future Team" className="text-white">{('Future Team')}</SelectItem>
+                          <SelectItem value=" Private" className="text-white">{(' Private')}</SelectItem>
+                         </SelectContent>
                       </Select>
                     </div>
                     <div className="flex items-end gap-2">
