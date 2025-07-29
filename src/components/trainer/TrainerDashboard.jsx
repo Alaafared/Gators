@@ -430,8 +430,9 @@ const TrainerDashboard = () => {
                           <SelectItem value="Level2" className="text-white">{('Level2')}</SelectItem>
                           <SelectItem value="Level3" className="text-white">{('Level3')}</SelectItem>
                           <SelectItem value="Level4" className="text-white">{('Level4')}</SelectItem>
-                          <SelectItem value="Level5" className="text-white">{('Level5')}</SelectItem>
-                          <SelectItem value="Level6" className="text-white">{('Level6')}</SelectItem>
+                          <SelectItem value="Adult" className="text-white">{('Adult')}</SelectItem>
+                          <SelectItem value="Dream Team" className="text-white">{('Dream Team')}</SelectItem>
+                          <SelectItem value="Promise Team" className="text-white">{('Promise Team')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
