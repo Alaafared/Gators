@@ -12,7 +12,7 @@ import { Search, Plus, Edit, Trash2, UserCheck, Loader2, Printer, ArrowUpDown } 
 import { supabase } from '@/lib/customSupabaseClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const LEVELS = ['Level1', 'Level2', 'Level3', 'Level4', 'Adult', 'Dream Team'];
+const LEVELS = ['Level1', 'Level2', 'Level3', 'Level4', 'Adult', 'Dream Team','Promise Team'];
 
 const TrainersTab = () => {
   const { t } = useLanguage();
