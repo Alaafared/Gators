@@ -12,21 +12,24 @@ import { useToast } from '@/components/ui/use-toast';
 import { Calendar, Users, Clock, Edit, User, Printer, Search, ChevronDown, ChevronUp, Plus, Eye, Trash2, ArrowUpDown } from 'lucide-react';
 import { Helmet } from 'react-helmet';
 import { supabase } from '@/lib/customSupabaseClient';
-
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription, // أضف هذا الاستيراد
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const TrainerDashboard = () => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
   const [schedules, setSchedules] = useState([]);
+  const [mySchedules, setMySchedules] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [trainees, setTrainees] = useState([]);
   const [stats, setStats] = useState({ mySchedules: 0, myTrainees: 0, todaysSessions: 0 });
@@ -37,30 +40,30 @@ const TrainerDashboard = () => {
     phone: '',
     level: '',
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'day', direction: 'asc' });
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingBooking, setEditingBooking] = useState(null);
-  const [viewingBooking, setViewingBooking] = useState(null);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const trainerName = "اسم المدرب هنا"; // أو جلب القيمة من الـ state أو الـ props
-
-
   const [newBooking, setNewBooking] = useState({
     student_id: '',
     day: '',
     time: '',
     status: 'confirmed',
-    level: 'Level1' // إضافة قيمة افتراضية
-    
+    level: ''
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTermSchedules, setSearchTermSchedules] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'day', direction: 'asc' });
+  const [sortConfigSchedules, setSortConfigSchedules] = useState({ key: 'day', direction: 'asc' });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingBooking, setEditingBooking] = useState(null);
+  const [viewingBooking, setViewingBooking] = useState(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("bookings");
 
   useEffect(() => {
     if (user) {
       fetchProfileData();
       fetchData();
       fetchTrainees();
+      fetchMySchedules();
     }
   }, [user]);
 
@@ -93,6 +96,32 @@ const TrainerDashboard = () => {
         title: 'Error fetching trainees', 
         description: error.message, 
         variant: 'destructive' 
+      });
+    }
+  };
+
+  const fetchMySchedules = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('schedules')
+        .select(`
+          *,
+          schedule_students (
+            student_id,
+            students:profiles (id, full_name)
+          )
+        `)
+        .eq('trainer_id', user.id)
+        .order('day', { ascending: true })
+        .order('time_slot', { ascending: true });
+
+      if (error) throw error;
+      setMySchedules(data || []);
+    } catch (error) {
+      toast({
+        title: 'Error fetching schedules',
+        description: error.message,
+        variant: 'destructive'
       });
     }
   };
@@ -168,7 +197,6 @@ const TrainerDashboard = () => {
         trainer_id: user.id,
         student_id: newBooking.student_id,
         student_name: selectedTrainee?.full_name,
-        // email: selectedTrainee?.email,
         status: newBooking.status
       }])
       .select();
@@ -254,6 +282,14 @@ const TrainerDashboard = () => {
     setSortConfig({ key, direction });
   };
 
+  const handleSortSchedules = (key) => {
+    let direction = 'asc';
+    if (sortConfigSchedules.key === key && sortConfigSchedules.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfigSchedules({ key, direction });
+  };
+
   const sortedBookings = React.useMemo(() => {
     let sortableBookings = [...bookings];
     if (sortConfig.key) {
@@ -270,10 +306,32 @@ const TrainerDashboard = () => {
     return sortableBookings;
   }, [bookings, sortConfig]);
 
+  const sortedSchedules = React.useMemo(() => {
+    let sortableSchedules = [...mySchedules];
+    if (sortConfigSchedules.key) {
+      sortableSchedules.sort((a, b) => {
+        if (a[sortConfigSchedules.key] < b[sortConfigSchedules.key]) {
+          return sortConfigSchedules.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfigSchedules.key] > b[sortConfigSchedules.key]) {
+          return sortConfigSchedules.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableSchedules;
+  }, [mySchedules, sortConfigSchedules]);
+
   const filteredBookings = sortedBookings.filter(booking => 
     booking.student?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     booking.day.toLowerCase().includes(searchTerm.toLowerCase()) ||
     booking.time.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredSchedules = sortedSchedules.filter(schedule => 
+    schedule.day.toLowerCase().includes(searchTermSchedules.toLowerCase()) ||
+    schedule.time_slot.toLowerCase().includes(searchTermSchedules.toLowerCase()) ||
+    schedule.level.toLowerCase().includes(searchTermSchedules.toLowerCase())
   );
 
   const getStatusBadge = (status) => {
@@ -302,6 +360,7 @@ const TrainerDashboard = () => {
     }[attendance] || { color: 'bg-gray-500', text: t('not_recorded') };
     return <Badge className={`${config.color} text-white`}>{config.text}</Badge>;
   };
+
   const printTable = () => {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -320,7 +379,6 @@ const TrainerDashboard = () => {
         </head>
         <body>
           <div class="header">
-            <!-- اضف رابط الشعار الخاص بك هنا -->
             <img src="gators.png" alt="Logo" class="logo" />
             <div class="trainer-name">${('Name trainer ')}: ${user?.user_metadata?.full_name}</div>
           </div>
@@ -353,7 +411,61 @@ const TrainerDashboard = () => {
       </html>
     `);
     printWindow.document.close();
-};
+  };
+
+  const printSchedulesTable = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>My Schedules</title>
+          <style>
+            body { font-family: Arial; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+            .logo { max-height: 60px; }
+            .trainer-name { font-size: 18px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="gators.png" alt="Logo" class="logo" />
+            <div class="trainer-name">${('Name trainer ')}: ${user?.user_metadata?.full_name}</div>
+          </div>
+          
+          <h1>My Schedules</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Time Slot</th>
+                <th>Level</th>
+                <th>Capacity</th>
+                <th>Status</th>
+                <th>Students</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredSchedules.map(schedule => `
+                <tr>
+                  <td>${schedule.day}</td>
+                  <td>${schedule.time_slot}</td>
+                  <td>${schedule.level}</td>
+                  <td>${schedule.schedule_students?.length || 0}/${schedule.capacity}</td>
+                  <td>${schedule.status}</td>
+                  <td>${schedule.schedule_students?.map(ss => ss.students?.full_name).join(', ') || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const statCards = [
     { title: t('mySchedules'), value: stats.mySchedules, icon: Calendar, color: 'from-blue-500 to-cyan-500' },
@@ -498,265 +610,360 @@ const TrainerDashboard = () => {
           ))}
         </div>
 
-        {/* My Bookings with Search, Sort and Print */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="glass-effect border-white/20">
-            <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Users className="h-5 w-5" />
-                  {t('myBookings')}
-                </CardTitle>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/70" />
-                    <Input
-                      placeholder={t('search')}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 bg-white/10 border-white/20 text-white"
-                    />
-                  </div>
-                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('newBooking')}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px] bg-gray-900 border-white/20 text-white">
-                      <DialogHeader>
-                        <DialogTitle className="text-white">{t('newBooking')}</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="student" className="text-right text-white/90">
-                            {t('trainee')}
-                          </Label>
-                          <Select 
-                            value={newBooking.student_id} 
-                            onValueChange={(value) => setNewBooking({...newBooking, student_id: value})}
-                            className="col-span-3"
-                          >
-                            <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                              <SelectValue placeholder={t('selectTrainee')} />
-                            </SelectTrigger>
-                            <SelectContent className="bg-gray-800 border-white/20 text-white">
-                              {trainees.map((student) => (
-                                <SelectItem key={student.id} value={student.id}>
-                                  {student.full_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                                    {/* إضافة حقل المستوى */}
-    <div className="grid grid-cols-4 items-center gap-4">
-      <Label htmlFor="level" className="text-right text-white/90">
-        {t('level')}
-      </Label>
-      <Select 
-        value={newBooking.level} 
-        onValueChange={(value) => setNewBooking({...newBooking, level: value})}
-        className="col-span-3"
-      >
-        <SelectTrigger className="bg-white/10 border-white/20 text-white">
-          <SelectValue placeholder={('Level')} />
-        </SelectTrigger>
-        <SelectContent className="bg-gray-800 border-white/20 text-white">
-          <SelectItem value="Level1">{t('Level1')}</SelectItem>
-          <SelectItem value="Level2">{t('Level2')}</SelectItem>
-          <SelectItem value="Level3">{t('Level3')}</SelectItem>
-          <SelectItem value="Level4">{t('Level4')}</SelectItem>
-          <SelectItem value="Adult">{t('Adult')}</SelectItem>
-          <SelectItem value="Dream Team">{t('Dream Team')}</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="date" className="text-right text-white/90">
-                            {t('date')}
-                          </Label>
-                          <Input
-                            id="date"
-                            type="date"
-                            value={newBooking.day}
-                            onChange={(e) => setNewBooking({...newBooking, day: e.target.value})}
-                            className="col-span-3 bg-white/10 border-white/20 text-white"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="time" className="text-right text-white/90">
-                            {t('time')}
-                          </Label>
-                          <Input
-                            id="time"
-                            type="time"
-                            value={newBooking.time}
-                            onChange={(e) => setNewBooking({...newBooking, time: e.target.value})}
-                            className="col-span-3 bg-white/10 border-white/20 text-white"
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="status" className="text-right text-white/90">
-                            {t('status')}
-                          </Label>
-                          <Select 
-                            value={newBooking.status} 
-                            onValueChange={(value) => setNewBooking({...newBooking, status: value})}
-                            className="col-span-3"
-                          >
-                            <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                              <SelectValue placeholder={t('selectStatus')} />
-                            </SelectTrigger>
-                            <SelectContent className="bg-gray-800 border-white/20 text-white">
-                              <SelectItem value="confirmed">{t('confirmed')}</SelectItem>
-                              <SelectItem value="pending">{t('pending')}</SelectItem>
-                              <SelectItem value="cancelled">{t('cancelled')}</SelectItem>
-                              <SelectItem value="attended">{t('attended')}</SelectItem>
-                              <SelectItem value="absent">{t('absent')}</SelectItem>
-                              <SelectItem value="apologized">{t('apologized')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+        {/* Tabs for My Bookings and My Schedules */}
+        <Tabs defaultValue="bookings" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="bookings" onClick={() => setActiveTab("bookings")}>
+              <Users className="h-4 w-4 mr-2" />
+              {t('myBookings')}
+            </TabsTrigger>
+            <TabsTrigger value="schedules" onClick={() => setActiveTab("schedules")}>
+              <Calendar className="h-4 w-4 mr-2" />
+              My Schedules
+            </TabsTrigger>
+          </TabsList>
+
+          {/* My Bookings Tab */}
+          <TabsContent value="bookings">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <Card className="glass-effect border-white/20">
+                <CardHeader>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Users className="h-5 w-5" />
+                      {t('myBookings')}
+                    </CardTitle>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/70" />
+                        <Input
+                          placeholder={t('search')}
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-10 bg-white/10 border-white/20 text-white"
+                        />
                       </div>
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setIsDialogOpen(false)}
-                          className="border-white/20 text-white hover:bg-white/10"
-                        >
-                          {t('cancel')}
-                        </Button>
-                        <Button 
-                          onClick={handleCreateBooking}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          {t('create')}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Button variant="outline" onClick={printTable} className="flex items-center gap-1">
-                    <Printer className="h-4 w-4" />
-                    {t('print')}
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border border-white/20 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-white/20 hover:bg-white/5">
-                      <TableHead 
-                        className="text-white/90 cursor-pointer hover:text-white"
-                        onClick={() => handleSort('student.full_name')}
-                      >
-                        <div className="flex items-center">
-                          {t('trainee')}
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="text-white/90 cursor-pointer hover:text-white"
-                        onClick={() => handleSort('day')}
-                      >
-                        <div className="flex items-center">
-                          {t('date')}
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="text-white/90 cursor-pointer hover:text-white"
-                        onClick={() => handleSort('time')}
-                      >
-                        <div className="flex items-center">
-                          {t('time')}
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="text-white/90 cursor-pointer hover:text-white"
-                        onClick={() => handleSort('status')}
-                      >
-                        <div className="flex items-center">
-                          {t('status')}
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-white/90">{t('attendance')}</TableHead>
-                      <TableHead className="text-white/90">{t('actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredBookings.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-white/70 py-8">
-                          {t('noData')}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredBookings.map((booking) => (
-                        <TableRow key={booking.id} className="border-white/20 hover:bg-white/5">
-                          <TableCell className="text-white/90">
-                            {booking.student?.full_name || booking.student_name}
-                          </TableCell>
-                          <TableCell className="text-white/90">{booking.day}</TableCell>
-                          <TableCell className="text-white/90">{booking.time}</TableCell>
-                          <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                          <TableCell>
-                            <Select
-                              defaultValue={booking.attendance || 'not_recorded'}
-                              onValueChange={(value) => handleAttendanceChange(booking.id, value)}
-                            >
-                              <SelectTrigger className="bg-white/10 border-white/20 text-white w-[120px]">
-                                <SelectValue>{getAttendanceBadge(booking.attendance)}</SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="bg-slate-800 border-white/20">
-                                <SelectItem value="present" className="text-white">{t('present')}</SelectItem>
-                                <SelectItem value="absent" className="text-white">{t('absent')}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleView(booking)}
-                                className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+                      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                            <Plus className="h-4 w-4 mr-2" />
+                            {t('newBooking')}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[600px] bg-gray-900 border-white/20 text-white">
+  <DialogHeader>
+    <DialogTitle className="text-white">{t('newBooking')}</DialogTitle>
+    <DialogDescription>Add a new booking for your trainee</DialogDescription>
+  </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="student" className="text-right text-white/90">
+                                {t('trainee')}
+                              </Label>
+                              <Select 
+                                value={newBooking.student_id} 
+                                onValueChange={(value) => setNewBooking({...newBooking, student_id: value})}
+                                className="col-span-3"
                               >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(booking)}
-                                className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(booking.id)}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                                <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                                  <SelectValue placeholder={t('selectTrainee')} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-gray-800 border-white/20 text-white">
+                                  {trainees.map((student) => (
+                                    <SelectItem key={student.id} value={student.id}>
+                                      {student.full_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
-                          </TableCell>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="date" className="text-right text-white/90">
+                                {t('date')}
+                              </Label>
+                              <Input
+                                id="date"
+                                type="date"
+                                value={newBooking.day}
+                                onChange={(e) => setNewBooking({...newBooking, day: e.target.value})}
+                                className="col-span-3 bg-white/10 border-white/20 text-white"
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="time" className="text-right text-white/90">
+                                {t('time')}
+                              </Label>
+                              <Input
+                                id="time"
+                                type="time"
+                                value={newBooking.time}
+                                onChange={(e) => setNewBooking({...newBooking, time: e.target.value})}
+                                className="col-span-3 bg-white/10 border-white/20 text-white"
+                              />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                              <Label htmlFor="status" className="text-right text-white/90">
+                                {t('status')}
+                              </Label>
+                              <Select 
+                                value={newBooking.status} 
+                                onValueChange={(value) => setNewBooking({...newBooking, status: value})}
+                                className="col-span-3"
+                              >
+                                <SelectTrigger className="bg-white/10 border-white/20 text-white">
+                                  <SelectValue placeholder={t('selectStatus')} />
+                                </SelectTrigger>
+                                <SelectContent className="bg-gray-800 border-white/20 text-white">
+                                  <SelectItem value="confirmed">{t('confirmed')}</SelectItem>
+                                  <SelectItem value="pending">{t('pending')}</SelectItem>
+                                  <SelectItem value="cancelled">{t('cancelled')}</SelectItem>
+                                  <SelectItem value="attended">{t('attended')}</SelectItem>
+                                  <SelectItem value="absent">{t('absent')}</SelectItem>
+                                  <SelectItem value="apologized">{t('apologized')}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setIsDialogOpen(false)}
+                              className="border-white/20 text-white hover:bg-white/10"
+                            >
+                              {t('cancel')}
+                            </Button>
+                            <Button 
+                              onClick={handleCreateBooking}
+                              className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                              {t('create')}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      <Button variant="outline" onClick={printTable} className="flex items-center gap-1">
+                        <Printer className="h-4 w-4" />
+                        {t('print')}
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-lg border border-white/20 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/20 hover:bg-white/5">
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSort('student.full_name')}
+                          >
+                            <div className="flex items-center">
+                              {t('trainee')}
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSort('day')}
+                          >
+                            <div className="flex items-center">
+                              {t('date')}
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSort('time')}
+                          >
+                            <div className="flex items-center">
+                              {t('time')}
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSort('status')}
+                          >
+                            <div className="flex items-center">
+                              {t('status')}
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-white/90">{t('attendance')}</TableHead>
+                          <TableHead className="text-white/90">{t('actions')}</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center text-white/70 py-8">
+                              {t('noData')}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredBookings.map((booking) => (
+                            <TableRow key={booking.id} className="border-white/20 hover:bg-white/5">
+                              <TableCell className="text-white/90">
+                                {booking.student?.full_name || booking.student_name}
+                              </TableCell>
+                              <TableCell className="text-white/90">{booking.day}</TableCell>
+                              <TableCell className="text-white/90">{booking.time}</TableCell>
+                              <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                              <TableCell>
+                                <Select
+                                  defaultValue={booking.attendance || 'not_recorded'}
+                                  onValueChange={(value) => handleAttendanceChange(booking.id, value)}
+                                >
+                                  <SelectTrigger className="bg-white/10 border-white/20 text-white w-[120px]">
+                                    <SelectValue>{getAttendanceBadge(booking.attendance)}</SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-slate-800 border-white/20">
+                                    <SelectItem value="present" className="text-white">{t('present')}</SelectItem>
+                                    <SelectItem value="absent" className="text-white">{t('absent')}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleView(booking)}
+                                    className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEdit(booking)}
+                                    className="text-yellow-400 hover:text-yellow-300 hover:bg-yellow-400/10"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDelete(booking.id)}
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* My Schedules Tab */}
+          <TabsContent value="schedules">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <Card className="glass-effect border-white/20">
+                <CardHeader>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Calendar className="h-5 w-5" />
+                      My Schedules
+                    </CardTitle>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/70" />
+                        <Input
+                          placeholder="Search schedules..."
+                          value={searchTermSchedules}
+                          onChange={(e) => setSearchTermSchedules(e.target.value)}
+                          className="pl-10 bg-white/10 border-white/20 text-white"
+                        />
+                      </div>
+                      <Button variant="outline" onClick={printSchedulesTable} className="flex items-center gap-1">
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-lg border border-white/20 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/20 hover:bg-white/5">
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSortSchedules('day')}
+                          >
+                            <div className="flex items-center">
+                              Day
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSortSchedules('time_slot')}
+                          >
+                            <div className="flex items-center">
+                              Time Slot
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="text-white/90 cursor-pointer hover:text-white"
+                            onClick={() => handleSortSchedules('level')}
+                          >
+                            <div className="flex items-center">
+                              Level
+                              <ArrowUpDown className="ml-2 h-4 w-4" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-white/90">Capacity</TableHead>
+                          <TableHead className="text-white/90">Status</TableHead>
+                          <TableHead className="text-white/90">Students</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredSchedules.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center text-white/70 py-8">
+                              No schedules found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredSchedules.map((schedule) => (
+                            <TableRow key={schedule.id} className="border-white/20 hover:bg-white/5">
+                              <TableCell className="text-white/90">{schedule.day}</TableCell>
+                              <TableCell className="text-white/90">{schedule.time_slot}</TableCell>
+                              <TableCell className="text-white/90">{schedule.level}</TableCell>
+                              <TableCell className="text-white/90">
+                                {schedule.schedule_students?.length || 0}/{schedule.capacity}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={
+                                  schedule.status === 'active' ? 'default' : 
+                                  schedule.status === 'full' ? 'secondary' : 'destructive'
+                                }>
+                                  {schedule.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-white/90">
+                                {schedule.schedule_students?.map(ss => ss.students?.full_name).join(', ') || '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+        </Tabs>
 
         {/* View Booking Dialog */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
