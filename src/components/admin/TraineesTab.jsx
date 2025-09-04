@@ -24,7 +24,7 @@ const TraineesTab = () => {
     full_name: '',
     email: '',
     phone: '',
-    level: 'Level1',
+    level: 'Level0', // تغيير القيمة الافتراضية إلى Level0
     password: ''
   });
   const [loading, setLoading] = useState(true);
@@ -80,12 +80,18 @@ const TraineesTab = () => {
 
   const getLevelBadge = (level) => {
     const levelConfig = {
+      Level0: { color: 'bg-gray-400', text: t('Level0') },
       Level1: { color: 'bg-green-500', text: t('Level1') },
       Level2: { color: 'bg-yellow-500', text: t('Level2') },
-      Level3: { color: 'bg-red-500', text: t('Level3') },
-      Level4: { color: 'bg-blue-500', text: t('Level4') },
-      Adult: { color: 'bg-purple-500', text: t('Adult') },
-      DreamTeam: { color: 'bg-orange-500', text: t('Dream Team') }
+      Level3: { color: 'bg-orange-500', text: t('Level3') },
+      Level4: { color: 'bg-red-500', text: t('Level4') },
+      Adult: { color: 'bg-blue-500', text: t('Adult') },
+      PromiseTeam: { color: 'bg-purple-500', text: t('Promise Team') },
+      DreamTeam: { color: 'bg-indigo-500', text: t('Dream Team') },
+      FutureTeam: { color: 'bg-pink-500', text: t('Future Team') },
+      GatorsTeam: { color: 'bg-teal-500', text: t('Gators Team') },
+      MightyTeam: { color: 'bg-cyan-500', text: t('Mighty Team') },
+      OlympicTeam: { color: 'bg-amber-500', text: t('Olympic Team') }
     };
     const config = levelConfig[level] || { color: 'bg-gray-500', text: level };
     return <Badge className={`${config.color} text-white`}>{config.text}</Badge>;
@@ -136,7 +142,7 @@ const TraineesTab = () => {
   };
 
   const resetForm = () => {
-    setFormData({ full_name: '', email: '', phone: '', level: 'Level1', password: '' });
+    setFormData({ full_name: '', email: '', phone: '', level: 'Level0', password: '' }); // تحديث القيمة الافتراضية
     setEditingTrainee(null);
     setIsDialogOpen(false);
   };
@@ -146,7 +152,7 @@ const TraineesTab = () => {
       full_name: trainee.full_name || '',
       email: trainee.email || '',
       phone: trainee.phone || '',
-      level: trainee.level || 'Level1',
+      level: trainee.level || 'Level0', // تحديث القيمة الافتراضية
       password: ''
     });
     setEditingTrainee(trainee);
@@ -250,24 +256,36 @@ const TraineesTab = () => {
 
   const getLevelColor = (level) => {
     const levelConfig = {
+      Level0: '#9ca3af',
       Level1: '#22c55e',
       Level2: '#eab308',
-      Level3: '#ef4444',
-      Level4: '#3b82f6',
-      Adult: '#a855f7',
-      DreamTeam: '#f97316'
+      Level3: '#f97316',
+      Level4: '#ef4444',
+      Adult: '#3b82f6',
+      PromiseTeam: '#a855f7',
+      DreamTeam: '#6366f1',
+      FutureTeam: '#ec4899',
+      GatorsTeam: '#14b8a6',
+      MightyTeam: '#06b6d4',
+      OlympicTeam: '#f59e0b'
     };
     return levelConfig[level] || '#6b7280';
   };
 
   const getLevelText = (level) => {
     const levelConfig = {
+      Level0: t('Level0'),
       Level1: t('Level1'),
       Level2: t('Level2'),
       Level3: t('Level3'),
       Level4: t('Level4'),
       Adult: t('Adult'),
-      DreamTeam: t('Dream Team')
+      PromiseTeam: t('Promise Team'),
+      DreamTeam: t('Dream Team'),
+      FutureTeam: t('Future Team'),
+      GatorsTeam: t('Gators Team'),
+      MightyTeam: t('Mighty Team'),
+      OlympicTeam: t('Olympic Team')
     };
     return levelConfig[level] || level;
   };
@@ -358,12 +376,18 @@ const TraineesTab = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-800 border-white/20">
+                          <SelectItem value="Level0" className="text-white">{t('Level0')}</SelectItem>
                           <SelectItem value="Level1" className="text-white">{t('Level1')}</SelectItem>
                           <SelectItem value="Level2" className="text-white">{t('Level2')}</SelectItem>
                           <SelectItem value="Level3" className="text-white">{t('Level3')}</SelectItem>
                           <SelectItem value="Level4" className="text-white">{t('Level4')}</SelectItem>
                           <SelectItem value="Adult" className="text-white">{t('Adult')}</SelectItem>
+                          <SelectItem value="PromiseTeam" className="text-white">{t('Promise Team')}</SelectItem>
                           <SelectItem value="DreamTeam" className="text-white">{t('Dream Team')}</SelectItem>
+                          <SelectItem value="FutureTeam" className="text-white">{t('Future Team')}</SelectItem>
+                          <SelectItem value="GatorsTeam" className="text-white">{t('Gators Team')}</SelectItem>
+                          <SelectItem value="MightyTeam" className="text-white">{t('Mighty Team')}</SelectItem>
+                          <SelectItem value="OlympicTeam" className="text-white">{t('Olympic Team')}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
